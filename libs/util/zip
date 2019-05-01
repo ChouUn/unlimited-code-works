@@ -1,0 +1,123 @@
+//
+// Created by ChouUn on 2019/4/9.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_ZIP
+#define UNLIMITED_CODE_WORKS_ZIP
+
+#include <iterator>
+#include <tuple>
+#include <utility>
+#include <iterator>
+#include <tuple>
+#include <utility>
+
+#include <typeinfo>
+
+/// Class template integer_sequence
+template<typename _Tp, _Tp... _Idx>
+struct integer_sequence
+{
+    typedef _Tp value_type;
+    static constexpr size_t size() { return sizeof...(_Idx); }
+};
+
+template<typename _Tp, _Tp _Num,
+        typename _ISeq = typename std::_Build_index_tuple<_Num>::__type>
+struct _Make_integer_sequence;
+
+template<typename _Tp, _Tp _Num,  size_t... _Idx>
+struct _Make_integer_sequence<_Tp, _Num, std::_Index_tuple<_Idx...>>
+{
+static_assert( _Num >= 0,
+               "Cannot make integer sequence of negative length" );
+
+typedef integer_sequence<_Tp, static_cast<_Tp>(_Idx)...> __type;
+};
+
+/// Alias template make_integer_sequence
+template<typename _Tp, _Tp _Num>
+using make_integer_sequence
+= typename _Make_integer_sequence<_Tp, _Num>::__type;
+
+/// Alias template index_sequence
+template<size_t... _Idx>
+using index_sequence = integer_sequence<size_t, _Idx...>;
+
+/// Alias template make_index_sequence
+template<size_t _Num>
+using make_index_sequence = make_integer_sequence<size_t, _Num>;
+
+/// Alias template index_sequence_for
+template<typename... _Types>
+using index_sequence_for = make_index_sequence<sizeof...(_Types)>;
+
+template <typename... T>
+class zip_helper {
+public:
+    class iterator
+            : std::iterator<std::forward_iterator_tag,
+                    std::tuple<decltype(*std::declval<T>().begin())...>> {
+    private:
+        std::tuple<decltype(std::declval<T>().begin())...> iters_;
+
+        template <std::size_t... I>
+        typename iterator::value_type deref(index_sequence<I...>) const {
+            return typename iterator::value_type{*std::get<I>(iters_)...};
+        }
+
+        template <std::size_t... I>
+        void increment(index_sequence<I...>) {
+            auto l = {(++std::get<I>(iters_), 0)...};
+        }
+
+    public:
+        explicit iterator(decltype(iters_) iters) : iters_{std::move(iters)} {
+            std::cout << typeid(std::get<0>(iters)).name() << std::endl;
+            std::cout << typeid(std::get<1>(iters)).name() << std::endl;
+            std::cout << typeid(std::get<2>(iters)).name() << std::endl;
+            std::cout << typeid(std::get<3>(iters)).name() << std::endl;
+            std::cout << typeid(std::get<4>(iters)).name() << std::endl;
+
+            std::cout << typeid(iters).name() << std::endl;
+        }
+
+        iterator& operator++() {
+            increment(index_sequence_for<T...>{});
+            return *this;
+        }
+
+        iterator operator++(int) {
+            auto saved{*this};
+            increment(index_sequence_for<T...>{});
+            return saved;
+        }
+
+        bool operator!=(const iterator& other) const {
+            return iters_ != other.iters_;
+        }
+
+        typename iterator::value_type operator*() const {
+            return deref(index_sequence_for<T...>{});
+        }
+    };
+
+    zip_helper(T&... seqs)
+            : begin_{std::make_tuple(seqs.begin()...)},
+              end_{std::make_tuple(seqs.end()...)} {}
+
+    iterator begin() const { return begin_; }
+    iterator end() const { return end_; }
+
+private:
+    iterator begin_;
+    iterator end_;
+};
+
+// Sequences must be the same length.
+template <typename... T>
+zip_helper<T...> zip(T&&... seqs) {
+    return zip_helper<T...>{seqs...};
+}
+
+#endif //UNLIMITED_CODE_WORKS_ZIP

@@ -1,0 +1,113 @@
+//
+// Created by ChouUn on 2019/4/7.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_SCC
+#define UNLIMITED_CODE_WORKS_SCC
+
+#include <vector>
+#include <ds/graph>
+
+namespace cul {
+
+    /**
+     * Class: kosaraju
+     * Space Complexity: O((12 + |T|)|V| + (8 + |U|)|E|)
+     * @tparam T weight type of vertices
+     * @tparam U weight type of edges
+     */
+    template<class T, class U>
+    class kosaraju;
+
+    template<class T, class U>
+    kosaraju<T, U> make_kosaraju(const graph <T, U> &G, bool inverted = false);
+
+    template<class T, class U>
+    class kosaraju {
+        typedef kosaraju<T, U> _Self;
+
+    public:
+        typedef graph <T, U> graph_type;
+
+        kosaraju(const graph_type *__G, std::vector<bool> *__visited, std::vector<u32> *__order) :
+                _G(__G), _visited(__visited), _order(__order) {}
+
+        friend _Self cul::make_kosaraju<T, U>(const graph_type &G, bool inverted);
+
+        u32 size() const { return compos.size(); }
+
+        u32 operator[](u32 v_idx) const { return _index[v_idx]; }
+
+        std::vector<std::vector<u32>> compos;
+
+    private:
+        void _dfs_and_fill_order(u32 u) {
+            (*_visited)[u] = true;
+            for (const typename graph<T, U>::edge_type &e : _G->edges(u)) {
+                u32 v = e.first;
+                if (!(*_visited)[v]) _dfs_and_fill_order(v);
+            }
+            _order->push_back(u);
+        }
+
+        std::vector<u32> _index; // inverted index for vertices
+
+        // auxiliary data pointers, only useful during the make process
+        const graph_type *_G = nullptr; // original graph, or reversed graph
+        std::vector<bool> *_visited = nullptr; // whether the vertex has been visited
+        std::vector<u32> *_order = nullptr; // magic: order in first round, component in second round
+    };
+
+    template<class T, class U>
+    kosaraju<T, U> make_kosaraju(const graph <T, U> &G, bool inverted) {
+        u32 n_v = G.n_vertices();
+
+        // auxiliary data
+        const graph<T, U> Gp = G.transpose();
+        std::vector<bool> visited;
+        std::vector<u32> order;
+
+        kosaraju<T, U> K{&G, &visited, &order};
+
+        // first round
+        visited.assign(n_v, false);
+        order.reserve(n_v);
+        for (u32 u = 0; u < n_v; ++u) {
+            if (!visited[u]) K._dfs_and_fill_order(u);
+        }
+
+        // second round
+        K._G = &Gp;
+        visited.assign(n_v, false);
+        std::reverse(order.begin(), order.end()); // traverse queue by reverse order
+        for (u32 u : order) {
+            if (!visited[u]) {
+                std::vector<u32> compo;
+                K._order = &compo;
+                K._dfs_and_fill_order(u);
+                K.compos.push_back(std::move(compo));
+            }
+        }
+
+        // inverted index
+        if (inverted) {
+            K._index.assign(n_v, -1);
+            u32 n_compos = K.compos.size();
+            for (u32 i = 0; i < n_compos; ++i) {
+                for (u32 u : K.compos[i]) {
+                    K._index[u] = i;
+                }
+            }
+        }
+
+        // no longer be useful
+        K._G = nullptr;
+        K._visited = nullptr;
+        K._order = nullptr;
+
+        return K;
+    }
+
+}
+
+#endif //UNLIMITED_CODE_WORKS_SCC

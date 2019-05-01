@@ -1,0 +1,99 @@
+//
+// Created by ChouUn on 2019/4/9.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_GRAPH
+#define UNLIMITED_CODE_WORKS_GRAPH
+
+#include <vector>
+#include <tuple>
+#include <utility>
+#include <cul/std>
+
+namespace cul {
+
+    /**
+     * Class: graph
+     * Space Complexity: O((12 + |T|)|V| + (8 + |U|)|E|)
+     * @tparam T weight type of vertices
+     * @tparam U weight type of edges
+     */
+    template<class T = std::tuple<>, class U = std::tuple<>>
+    class graph {
+        typedef graph<T, U> _Self;
+
+    public:
+        typedef std::pair<u32, u32> edge_type; // first for to, second for index of edge
+        typedef T vertex_weight_type;
+        typedef U edge_weight_type;
+
+        u32 n_vertices() const { return _vertex_weight.size(); }
+
+        u32 n_edges() const { return _edge_weight.size(); }
+
+        void build(u32 n_v, u32 n_e = 0) {
+            _edges.assign(n_v, {});
+            _vertex_weight.assign(n_v, {});
+            _edge_weight.reserve(n_e);
+        }
+
+        void add_edge(u32 from, u32 to, U data = U()) { _add_edge(from, to, data); }
+
+        void add_double_edge(u32 from, u32 to, U data = U()) {
+            _add_edge(from, to, data);
+            _add_edge(to, from, data);
+        }
+
+        void add_couple_edge(u32 from, u32 to, U pri_data = U(), U sec_data = U()) {
+            _add_edge(from, to, pri_data);
+            _add_edge(to, from, sec_data);
+        }
+
+        std::vector<edge_type>& edges(u32 __v) { return _edges[__v]; }
+
+        const std::vector<edge_type>& edges(u32 __v) const { return _edges[__v]; }
+
+        vertex_weight_type& vertex(u32 __v) { return _vertex_weight[__v]; }
+
+        const vertex_weight_type& vertex(u32 __v) const { return _vertex_weight[__v]; }
+
+        edge_weight_type& edge(u32 __e) { return _edge_weight[__e]; }
+
+        const edge_weight_type& edge(u32 __e) const { return _edge_weight[__e]; }
+
+        _Self transpose() const {
+            u32 n_v = n_vertices();
+            u32 n_e = n_edges();
+
+            _Self other;
+            other._edges.assign(n_v, {});
+            other._vertex_weight.assign(n_v, {});
+            other._edge_weight.assign(n_e, {});
+            for (u32 from = 0; from < n_v; ++from) {
+                other._vertex_weight[from] = _vertex_weight[from];
+                for (const edge_type& e : edges(from)) {
+                    u32 to = e.first;
+                    u32 e_idx = e.second;
+                    other._edges[to].push_back(std::make_pair(from, e_idx));
+                    other._edge_weight[e_idx] = _edge_weight[e_idx];
+                }
+            }
+
+            return other;
+        }
+
+    private:
+        void _add_edge(u32 from, u32 to, U value) {
+            u32 e_idx = _edge_weight.size();
+            _edges[from].push_back({ to, e_idx });
+            _edge_weight.push_back(value);
+        }
+
+        std::vector<std::vector<edge_type>> _edges; // size = |V|, space = 12|V| + 8|E|
+        std::vector<vertex_weight_type> _vertex_weight; // size = |V|, space = |T||V|
+        std::vector<edge_weight_type> _edge_weight; // size = |E|, space = |U||E|
+    };
+
+} // namespace cul
+
+#endif //UNLIMITED_CODE_WORKS_GRAPH

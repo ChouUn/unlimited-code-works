@@ -1,0 +1,28 @@
+//
+// Created by ChouUn on 2019/4/3.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_STD
+#define UNLIMITED_CODE_WORKS_STD
+
+#include <bits/stdc++.h>
+
+using namespace std;
+
+typedef int32_t i32;
+typedef int64_t i64;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef long double ld;
+
+typedef std::pair<int, int> pii;
+typedef std::vector<int> vi;
+typedef std::vector<vi> vvi;
+typedef std::vector<pii> vpii;
+
+#define rep(i, a, b) for(auto i=a, i##_n=b; i<i##_n; ++i)
+#define per(i, a, b) for(auto i=b, i##_n=a; i-->i##_n; )
+#define endl '\n'
+
+#endif //UNLIMITED_CODE_WORKS_STD

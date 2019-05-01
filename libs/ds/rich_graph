@@ -1,0 +1,215 @@
+//
+// Created by ChouUn on 2019-04-04.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_RICH_GRAPH
+#define UNLIMITED_CODE_WORKS_RICH_GRAPH
+
+#include <algorithm>
+#include <tuple>
+#include <vector>
+
+namespace cul {
+
+    template<class T>
+    struct rich_graph_vertex {
+        size_t head;
+        T data;
+
+        rich_graph_vertex() : head(static_cast<size_t>(-1)) {}
+    };
+
+    template<class U>
+    struct rich_graph_edge {
+        size_t next;
+        size_t to;
+        U data;
+    };
+
+    template<class T = std::tuple<>, class U = std::tuple<>>
+    class rich_graph;
+
+    template<class T, class U>
+    class rich_graph_edge_iterator
+            : public std::iterator<std::forward_iterator_tag, rich_graph_edge<U>> {
+    public:
+        typedef rich_graph_edge_iterator<T, U> _Self;
+        typedef rich_graph<T, U> _Graph;
+        typedef typename _Graph::edge_type value_type;
+        typedef typename _Graph::edge_type *pointer;
+        typedef typename _Graph::edge_type &reference;
+
+        explicit rich_graph_edge_iterator(_Graph *G, size_t idx) : _G(G), _idx(idx) {}
+
+        reference operator*() const { return _G->edge(_idx); }
+
+        pointer operator->() const { return std::addressof(_G->edge(_idx)); }
+
+        _Self &operator++() {
+            _next();
+            return *this;
+        }
+
+        _Self operator++(int) {
+            _Self __tmp = *this;
+            _next();
+            return __tmp;
+        }
+
+        bool operator==(const _Self &__x) const { return _G == __x._G && _idx == __x._idx; }
+
+        bool operator!=(const _Self &__x) const { return _G != __x._G || _idx != __x._idx; }
+
+    private:
+        void _next() { _idx = _G->edge(_idx).next; }
+
+        _Graph *_G;
+        size_t _idx;
+    };
+
+    template<class T, class U>
+    class rich_graph_edge_const_iterator
+            : public std::iterator<std::forward_iterator_tag, rich_graph_edge<U>> {
+    public:
+        typedef rich_graph_edge_const_iterator<T, U> _Self;
+        typedef rich_graph<T, U> _Graph;
+        typedef typename _Graph::edge_type value_type;
+        typedef const typename _Graph::edge_type *pointer;
+        typedef const typename _Graph::edge_type &reference;
+
+        explicit rich_graph_edge_const_iterator(const _Graph *G, size_t idx) : _G(G), _idx(idx) {}
+
+        reference operator*() const { return _G->edge(_idx); }
+
+        pointer operator->() const { return std::addressof(_G->edge(_idx)); }
+
+        _Self &operator++() {
+            _next();
+            return *this;
+        }
+
+        _Self operator++(int) {
+            _Self __tmp = *this;
+            _next();
+            return __tmp;
+        }
+
+        bool operator==(const _Self &__x) const { return _G == __x._G && _idx == __x._idx; }
+
+        bool operator!=(const _Self &__x) const { return _G != __x._G || _idx != __x._idx; }
+
+    private:
+        void _next() { _idx = _G->edge(_idx).next; }
+
+        const _Graph *_G;
+        size_t _idx;
+    };
+
+    template<class T, class U>
+    class rich_graph_edges {
+        typedef rich_graph<T, U> _Graph;
+
+    public:
+        typedef rich_graph_edge_iterator<T, U> iterator;
+
+        explicit rich_graph_edges(_Graph *G, size_t idx) : _G(G), _idx(idx) {}
+
+        iterator begin() const { return iterator(_G, _G->vertex(_idx).head); }
+
+        iterator end() const { return iterator(_G, static_cast<size_t>(-1)); }
+
+    private:
+        _Graph *_G;
+        size_t _idx;
+    };
+
+    template<class T, class U>
+    class rich_graph_const_edges {
+        typedef rich_graph<T, U> _Graph;
+
+    public:
+        typedef rich_graph_edge_const_iterator<T, U> const_iterator;
+
+        explicit rich_graph_const_edges(const _Graph *G, size_t idx) : _G(G), _idx(idx) {}
+
+        const_iterator begin() const { return const_iterator(_G, _G->vertex(_idx).head); }
+
+        const_iterator end() const { return const_iterator(_G, static_cast<size_t>(-1)); }
+
+    private:
+        const _Graph *_G;
+        size_t _idx;
+    };
+
+    template<class T, class U>
+    class rich_graph {
+        typedef rich_graph<T, U> _Self;
+
+    public:
+        typedef rich_graph_vertex<T> vertex_type;
+        typedef rich_graph_edge<U> edge_type;
+        typedef rich_graph_edges<T, U> edges_type;
+        typedef rich_graph_const_edges<T, U> const_edges_type;
+
+        void build(size_t nV, size_t nE = 0) {
+            _vertices.assign(nV, {});
+            _edges.reserve(nE);
+        }
+
+        void add_edge(size_t from, size_t to, U data = U()) { _add_edge(from, to, std::move(data)); }
+
+        void add_double_edge(size_t from, size_t to, U data = U()) {
+            _add_edge(from, to, data);
+            _add_edge(to, from, data);
+        }
+
+        void add_couple_edge(size_t from, size_t to, U pri_data = U(), U sec_data = U()) {
+            _add_edge(from, to, pri_data);
+            _add_edge(to, from, sec_data);
+        }
+
+        size_t n_vertices() const { return _vertices.size(); }
+
+        size_t n_edges() const { return _edges.size(); }
+
+        vertex_type &vertex(size_t idx) { return _vertices[idx]; }
+
+        edge_type &edge(size_t idx) { return _edges[idx]; }
+
+        const vertex_type &vertex(size_t idx) const { return _vertices[idx]; }
+
+        const edge_type &edge(size_t idx) const { return _edges[idx]; }
+
+        edges_type edges(size_t idx) { return edges_type(this, idx); }
+
+        const_edges_type edges(size_t idx) const { return const_edges_type(this, idx); }
+
+        _Self transpose() const {
+            size_t nV = n_vertices();
+            size_t nE = n_edges();
+
+            _Self res;
+            res.build(nV, nE);
+            for (size_t from = 0; from < nV; ++from) {
+                for (auto e : edges(from)) {
+                    res._add_edge(e.to, from, e.data);
+                }
+            }
+            return res;
+        }
+
+    private:
+        void _add_edge(size_t from, size_t to, U value) {
+            size_t idx = _edges.size();
+            size_t &head = _vertices[from].head;
+            _edges.push_back({head, to, value});
+            head = idx;
+        }
+
+        std::vector<vertex_type> _vertices;
+        std::vector<edge_type> _edges;
+    };
+
+} // namespace cul
+
+#endif //UNLIMITED_CODE_WORKS_RICH_GRAPH

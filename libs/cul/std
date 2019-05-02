@@ -5,7 +5,11 @@
 #ifndef UNLIMITED_CODE_WORKS_STD
 #define UNLIMITED_CODE_WORKS_STD
 
+#if defined(__APPLE__) || defined(__APPLE_CC__) || defined(__OSX__)
+#include <cul/stdc++.h>
+#else
 #include <bits/stdc++.h>
+#endif
 
 using namespace std;
 

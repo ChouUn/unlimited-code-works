@@ -19,9 +19,6 @@ int main() {
     std::ios_base::sync_with_stdio(false);
     std::cin.tie(nullptr);
 
-    cout << sizeof(std::tuple<>) << endl;
-    cout.flush();
-
     int n, m, d;
     cin >> n >> m >> d;
     rep(i, 0, m) cin >> eu[i] >> ev[i], --eu[i], --ev[i];

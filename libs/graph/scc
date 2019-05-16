@@ -6,6 +6,8 @@
 #define UNLIMITED_CODE_WORKS_SCC
 
 #include <vector>
+#include <cul/std>
+#include <cul/itertools>
 #include <ds/graph>
 
 namespace cul {
@@ -20,14 +22,16 @@ namespace cul {
     class kosaraju;
 
     template<class T, class U>
-    kosaraju<T, U> make_kosaraju(const graph <T, U> &G, bool inverted = false);
+    kosaraju<T, U> make_kosaraju(const graph<T, U> &G, bool inverted = false);
 
     template<class T, class U>
     class kosaraju {
         typedef kosaraju<T, U> _Self;
 
     public:
-        typedef graph <T, U> graph_type;
+        typedef graph<T, U> graph_type;
+
+        kosaraju() = default;
 
         kosaraju(const graph_type *__G, std::vector<bool> *__visited, std::vector<u32> *__order) :
                 _G(__G), _visited(__visited), _order(__order) {}
@@ -36,9 +40,9 @@ namespace cul {
 
         u32 size() const { return compos.size(); }
 
-        u32 operator[](u32 v_idx) const { return _index[v_idx]; }
+        const std::vector<u32> &operator[](u32 __idx) const { return compos[__idx]; }
 
-        std::vector<std::vector<u32>> compos;
+        u32 inverse(u32 __v) const { return _inverted[__v]; }
 
     private:
         void _dfs_and_fill_order(u32 u) {
@@ -50,7 +54,11 @@ namespace cul {
             _order->push_back(u);
         }
 
-        std::vector<u32> _index; // inverted index for vertices
+    public:
+        std::vector<std::vector<u32>> compos; // strongly connected components, sorted from source to sink
+
+    private:
+        std::vector<u32> _inverted; // inverted index for vertices
 
         // auxiliary data pointers, only useful during the make process
         const graph_type *_G = nullptr; // original graph, or reversed graph
@@ -59,7 +67,7 @@ namespace cul {
     };
 
     template<class T, class U>
-    kosaraju<T, U> make_kosaraju(const graph <T, U> &G, bool inverted) {
+    kosaraju<T, U> make_kosaraju(const graph<T, U> &G, bool inverted) {
         u32 n_v = G.n_vertices();
 
         // auxiliary data
@@ -79,8 +87,7 @@ namespace cul {
         // second round
         K._G = &Gp;
         visited.assign(n_v, false);
-        std::reverse(order.begin(), order.end()); // traverse queue by reverse order
-        for (u32 u : order) {
+        for (u32 u : backwards(order)) {  // traverse queue by reverse order
             if (!visited[u]) {
                 std::vector<u32> compo;
                 K._order = &compo;
@@ -91,11 +98,11 @@ namespace cul {
 
         // inverted index
         if (inverted) {
-            K._index.assign(n_v, -1);
+            K._inverted.assign(n_v, -1);
             u32 n_compos = K.compos.size();
             for (u32 i = 0; i < n_compos; ++i) {
                 for (u32 u : K.compos[i]) {
-                    K._index[u] = i;
+                    K._inverted[u] = i;
                 }
             }
         }
@@ -108,6 +115,6 @@ namespace cul {
         return K;
     }
 
-}
+} // namespace cul
 
 #endif //UNLIMITED_CODE_WORKS_SCC

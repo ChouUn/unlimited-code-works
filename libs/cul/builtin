@@ -1,0 +1,64 @@
+//
+// Created by ChouUn on 2019/5/17.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_BUILTIN
+#define UNLIMITED_CODE_WORKS_BUILTIN
+
+#include <cul/std>
+
+
+/**
+ * find first set
+ * which identifies the least significant index or position of the bit set to one in the word.
+ *        V
+ * (00011010)2
+ */
+i32 ffs(i32 x) { return __builtin_ffs(x) - 1; }
+
+i64 ffs(i64 x) { return __builtin_ffsll(x) - 1; }
+
+i32 ffz(i32 x) { return ffs(~x); }
+
+i64 ffz(i64 x) { return ffs(~x); }
+
+
+/**
+ * count trailing zeros
+ * which counts the number of zero bits succeeding the least significant one bit.
+ *        VV
+ * (00110100)2
+ */
+u32 ctz(u32 x) { return __builtin_ctz(x); }
+
+u64 ctz(u64 x) { return __builtin_ctzll(x); }
+
+u32 cts(u32 x) { return ctz(~x); }
+
+u64 cts(u64 x) { return ctz(~x); }
+
+
+/**
+ * count leading zeros
+ * which counts the number of zero bits preceding the most significant one bit.
+ *  VV
+ * (00110100)2
+ */
+u32 clz(u32 x) { return __builtin_clz(x); }
+
+u64 clz(u64 x) { return __builtin_clzll(x); }
+
+u32 cls(u32 x) { return clz(~x); }
+
+u64 cls(u64 x) { return clz(~x); }
+
+
+/**
+ * Returns the number of 1-bits in x.
+ */
+u32 popcount(u32 x) { return __builtin_popcount(x); }
+
+u64 popcount(u64 x) { return __builtin_popcountll(x); }
+
+
+#endif //UNLIMITED_CODE_WORKS_BUILTIN

@@ -1,0 +1,32 @@
+//
+// Created by ChouUn on 2019/5/17.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_ITERTOOLS
+#define UNLIMITED_CODE_WORKS_ITERTOOLS
+
+namespace cul {
+
+    namespace _detail {
+
+        template<class Container>
+        class _backwards {
+            Container &_container;
+        public:
+            explicit _backwards(Container &__container) : _container(__container) {}
+
+            typename Container::reverse_iterator begin() { return _container.rbegin(); }
+
+            typename Container::reverse_iterator end() { return _container.rend(); }
+        };
+
+    }
+
+    template<class Container>
+    _detail::_backwards<Container> backwards(Container &__container) {
+        return _detail::_backwards<Container>(__container);
+    }
+
+} // namespace cul
+
+#endif //UNLIMITED_CODE_WORKS_ITERTOOLS

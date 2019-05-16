@@ -27,4 +27,4 @@ def parse_source_file(filepath: str, libs: Set[str]) -> Tuple[List[str], str]:
 
 
 if __name__ == '__main__':
-    print(parse_source_file('libs/graph/scc'))
+    print(parse_source_file('libs/graph/scc', set()))

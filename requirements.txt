@@ -1,2 +1,2 @@
 networkx==2.2
-clipboard==0.0.4
+pyperclip==1.7.0

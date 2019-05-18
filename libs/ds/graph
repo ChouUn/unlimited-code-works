@@ -49,17 +49,17 @@ namespace cul {
             _add_edge(to, from, sec_data);
         }
 
-        std::vector<edge_type>& edges(u32 __v) { return _edges[__v]; }
+        std::vector<edge_type>& edges(u32 v_idx) { return _edges[v_idx]; }
 
-        const std::vector<edge_type>& edges(u32 __v) const { return _edges[__v]; }
+        const std::vector<edge_type>& edges(u32 v_idx) const { return _edges[v_idx]; }
 
-        vertex_weight_type& vertex(u32 __v) { return _vertex_weight[__v]; }
+        vertex_weight_type& vertex(u32 v_idx) { return _vertex_weight[v_idx]; }
 
-        const vertex_weight_type& vertex(u32 __v) const { return _vertex_weight[__v]; }
+        const vertex_weight_type& vertex(u32 v_idx) const { return _vertex_weight[v_idx]; }
 
-        edge_weight_type& edge(u32 __e) { return _edge_weight[__e]; }
+        edge_weight_type& edge(u32 e_idx) { return _edge_weight[e_idx]; }
 
-        const edge_weight_type& edge(u32 __e) const { return _edge_weight[__e]; }
+        const edge_weight_type& edge(u32 e_idx) const { return _edge_weight[e_idx]; }
 
         _Self transpose() const {
             u32 n_v = n_vertices();
@@ -74,7 +74,7 @@ namespace cul {
                 for (const edge_type& e : edges(from)) {
                     u32 to = e.first;
                     u32 e_idx = e.second;
-                    other._edges[to].push_back(std::make_pair(from, e_idx));
+                    other._edges[to].emplace_back(from, e_idx);
                     other._edge_weight[e_idx] = _edge_weight[e_idx];
                 }
             }

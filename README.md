@@ -14,3 +14,10 @@ C++11
 
 - https://github.com/github/gitignore/blob/master/Global/macOS.gitignore
 - https://github.com/github/gitignore/blob/master/Global/JetBrains.gitignore
+
+## Submit
+
+```bash
+conda activate unlimited-code-works
+python -m util.core
+```

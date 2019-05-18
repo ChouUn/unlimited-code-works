@@ -33,16 +33,16 @@ namespace cul {
 
         kosaraju() = default;
 
-        kosaraju(const graph_type *__G, std::vector<bool> *__visited, std::vector<u32> *__order) :
-                _G(__G), _visited(__visited), _order(__order) {}
+        kosaraju(const graph_type *G, std::vector<bool> *visited, std::vector<u32> *order) :
+                _G(G), _visited(visited), _order(order) {}
 
         friend _Self cul::make_kosaraju<T, U>(const graph_type &G, bool inverted);
 
         u32 size() const { return compos.size(); }
 
-        const std::vector<u32> &operator[](u32 __idx) const { return compos[__idx]; }
+        const std::vector<u32> &operator[](u32 compo_idx) const { return compos[compo_idx]; }
 
-        u32 inverse(u32 __v) const { return _inverted[__v]; }
+        u32 inverse(u32 v_idx) const { return _inverted[v_idx]; }
 
     private:
         void _dfs_and_fill_order(u32 u) {
@@ -96,7 +96,7 @@ namespace cul {
             }
         }
 
-        // inverted index
+        // inverted index if needed
         if (inverted) {
             K._inverted.assign(n_v, -1);
             u32 n_compos = K.compos.size();

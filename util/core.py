@@ -31,11 +31,11 @@ def get_libs() -> List[str]:
 
 
 libs = set(get_libs())
-# print(libs)
+# print('libs:', libs)
 
 main_filepath = next((filepath for filepath in travel(SRC_DIR) if filepath.endswith('.cpp')))
 main_filepath = f'{SRC_DIR}{main_filepath}'
-# print(main_filepath)
+# print('path of main file:', main_filepath)
 
 mapping: Dict[str, Tuple[List[str], str]] = {}
 queue: List[str] = [main_filepath]

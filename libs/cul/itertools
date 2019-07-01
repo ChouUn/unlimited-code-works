@@ -9,20 +9,22 @@ namespace cul {
 
     namespace _detail {
 
-        template<class Container>
+        template <class Container>
         class _backwards {
-            Container &_container;
         public:
             explicit _backwards(Container &__container) : _container(__container) {}
 
             typename Container::reverse_iterator begin() { return _container.rbegin(); }
 
             typename Container::reverse_iterator end() { return _container.rend(); }
+
+        private:
+            Container &_container;
         };
 
     }
 
-    template<class Container>
+    template <class Container>
     _detail::_backwards<Container> backwards(Container &__container) {
         return _detail::_backwards<Container>(__container);
     }

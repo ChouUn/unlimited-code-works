@@ -11,7 +11,7 @@
 
 namespace cul {
 
-    template<class T>
+    template <class T>
     struct rich_graph_vertex {
         size_t head;
         T data;
@@ -19,17 +19,17 @@ namespace cul {
         rich_graph_vertex() : head(static_cast<size_t>(-1)) {}
     };
 
-    template<class U>
+    template <class U>
     struct rich_graph_edge {
         size_t next;
         size_t to;
         U data;
     };
 
-    template<class T = std::tuple<>, class U = std::tuple<>>
+    template <class T = std::tuple<>, class U = std::tuple<>>
     class rich_graph;
 
-    template<class T, class U>
+    template <class T, class U>
     class rich_graph_edge_iterator
             : public std::iterator<std::forward_iterator_tag, rich_graph_edge<U>> {
     public:
@@ -41,24 +41,24 @@ namespace cul {
 
         explicit rich_graph_edge_iterator(_Graph *G, size_t idx) : _G(G), _idx(idx) {}
 
-        reference operator*() const { return _G->edge(_idx); }
+        reference operator *() const { return _G->edge(_idx); }
 
-        pointer operator->() const { return std::addressof(_G->edge(_idx)); }
+        pointer operator ->() const { return std::addressof(_G->edge(_idx)); }
 
-        _Self &operator++() {
+        _Self &operator ++() {
             _next();
             return *this;
         }
 
-        _Self operator++(int) {
+        _Self operator ++(int) {
             _Self __tmp = *this;
             _next();
             return __tmp;
         }
 
-        bool operator==(const _Self &__x) const { return _G == __x._G && _idx == __x._idx; }
+        bool operator ==(const _Self &__x) const { return _G == __x._G && _idx == __x._idx; }
 
-        bool operator!=(const _Self &__x) const { return _G != __x._G || _idx != __x._idx; }
+        bool operator !=(const _Self &__x) const { return _G != __x._G || _idx != __x._idx; }
 
     private:
         void _next() { _idx = _G->edge(_idx).next; }
@@ -67,7 +67,7 @@ namespace cul {
         size_t _idx;
     };
 
-    template<class T, class U>
+    template <class T, class U>
     class rich_graph_edge_const_iterator
             : public std::iterator<std::forward_iterator_tag, rich_graph_edge<U>> {
     public:
@@ -79,24 +79,24 @@ namespace cul {
 
         explicit rich_graph_edge_const_iterator(const _Graph *G, size_t idx) : _G(G), _idx(idx) {}
 
-        reference operator*() const { return _G->edge(_idx); }
+        reference operator *() const { return _G->edge(_idx); }
 
-        pointer operator->() const { return std::addressof(_G->edge(_idx)); }
+        pointer operator ->() const { return std::addressof(_G->edge(_idx)); }
 
-        _Self &operator++() {
+        _Self &operator ++() {
             _next();
             return *this;
         }
 
-        _Self operator++(int) {
+        _Self operator ++(int) {
             _Self __tmp = *this;
             _next();
             return __tmp;
         }
 
-        bool operator==(const _Self &__x) const { return _G == __x._G && _idx == __x._idx; }
+        bool operator ==(const _Self &__x) const { return _G == __x._G && _idx == __x._idx; }
 
-        bool operator!=(const _Self &__x) const { return _G != __x._G || _idx != __x._idx; }
+        bool operator !=(const _Self &__x) const { return _G != __x._G || _idx != __x._idx; }
 
     private:
         void _next() { _idx = _G->edge(_idx).next; }
@@ -105,7 +105,7 @@ namespace cul {
         size_t _idx;
     };
 
-    template<class T, class U>
+    template <class T, class U>
     class rich_graph_edges {
         typedef rich_graph<T, U> _Graph;
 
@@ -123,7 +123,7 @@ namespace cul {
         size_t _idx;
     };
 
-    template<class T, class U>
+    template <class T, class U>
     class rich_graph_const_edges {
         typedef rich_graph<T, U> _Graph;
 
@@ -141,7 +141,7 @@ namespace cul {
         size_t _idx;
     };
 
-    template<class T, class U>
+    template <class T, class U>
     class rich_graph {
         typedef rich_graph<T, U> _Self;
 
@@ -202,7 +202,7 @@ namespace cul {
         void _add_edge(size_t from, size_t to, U value) {
             size_t idx = _edges.size();
             size_t &head = _vertices[from].head;
-            _edges.push_back({head, to, value});
+            _edges.push_back({ head, to, value });
             head = idx;
         }
 

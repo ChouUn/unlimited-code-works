@@ -1,0 +1,650 @@
+//
+// Created by ChouUn on 2019/6/8.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_BIGINT
+#define UNLIMITED_CODE_WORKS_BIGINT
+
+#include <climits>
+#include <limits>
+#include <string>
+#include <vector>
+#include <iostream>
+
+#include <cul/std>
+
+#include <numerics/details/NumericsHelpers.h>
+#include <numerics/details/BigIntegerCalculator.h>
+#include <numerics/details/BigIntegerCalculator.AddSub.h>
+#include <numerics/details/BigIntegerCalculator.SquMul.h>
+#include <numerics/details/BigIntegerCalculator.DivRem.h>
+
+namespace cul {
+    class BigInteger {
+    public: // type definition
+
+        typedef std::vector<u32> container;
+
+    public: // public static member
+        static const u32 kuMaskHighBit = (u32) INT_MIN;
+        static const i32 kcbitUint = 32;
+
+        static const BigInteger Zero;
+        static const BigInteger One;
+        static const BigInteger MinusOne;
+
+    private: // private static member
+        // We have to make a choice of how to represent i32.MinValue. This is the one
+        // _value that fits in an i32, but whose negation does not fit in an i32.
+        // We choose to use a large representation, so we're symmetric with respect to negation.
+        static const BigInteger s_bnMinInt;
+        static const BigInteger s_bnOneInt;
+        static const BigInteger s_bnZeroInt;
+        static const BigInteger s_bnMinusOneInt;
+
+    public: // public constructor
+        BigInteger() { // NOLINT(hicpp-member-init)
+            *this = s_bnZeroInt;
+            AssertValid();
+        }
+
+        // BigInteger.cs Line 34
+        explicit BigInteger(i32 value) {
+            if (value == INT_MIN) { *this = s_bnMinInt; }
+            else { _sign = value, _bits = container(); }
+            AssertValid();
+        }
+
+        // BigInteger.cs Line 47
+        explicit BigInteger(u32 value) {
+            if (value <= INT_MAX) { _sign = (i32) value, _bits = container {}; }
+            else { _sign = +1, _bits = container { value }; }
+            AssertValid();
+        }
+
+        // BigInteger.cs Line 63
+        explicit BigInteger(i64 value) {
+            if (INT_MIN < value && value <= INT_MAX) { _sign = (i32) value, _bits = container {}; }
+            else if (value == INT_MIN) { *this = s_bnMinInt; }
+            else {
+                u64 x = 0;
+                if (value < 0) { x = (u64) -value, _sign = -1; }
+                else { x = (u64) value, _sign = +1; }
+                if (x <= UINT_MAX) { _bits = container { (u32) x }; }
+                else { _bits = container { (u32) x, (u32) (x >> kcbitUint) }; }
+            }
+            AssertValid();
+        }
+
+        // BigInteger.cs Line 105
+        explicit BigInteger(u64 value) {
+            if (value <= INT_MAX) { _sign = (i32) value, _bits = container {}; }
+            else if (value <= UINT_MAX) { _sign = +1, _bits = container { (u32) value }; }
+            else { _sign = +1, _bits = container { (u32) value, (u32) (value >> kcbitUint) }; }
+            AssertValid();
+        }
+
+        explicit BigInteger(const std::string &s) {
+            if (s == "0") {
+                *this = s_bnZeroInt;
+                return;
+            }
+
+            u32 len = s.size(), cur = 0;
+
+            bool negative = false;
+            if (s[cur] == '-') { negative = true, ++cur; }
+
+            container value = container(1, 0);
+            u32 base = 10;
+            while (cur < len) {
+                u32 digit = s[cur++] - '0';
+                value = BigIntegerCalculator::Multiply(value, base);
+                value = BigIntegerCalculator::Add(value, digit);
+            }
+
+            *this = BigInteger(value, negative);
+        }
+
+    private: // private constructor
+        // BigInteger.cs Line 465
+        BigInteger(i32 n, container rgu) : _sign(n), _bits(std::move(rgu)) {
+            AssertValid();
+        }
+
+        // BigInteger.cs Line 478
+        /**
+         * Constructor used during bit manipulation and arithmetic.
+         * When possible the container will be packed into  _sign to conserve space.
+         * @param value The absolute value of the number
+         * @param negative The bool indicating the sign of the value.
+         */
+        BigInteger(const container &value, bool negative) {
+            i32 len;
+
+            // Try to conserve space as much as possible by checking for wasted leading container entries
+            // sometimes the container has leading zeros from bit manipulation operations & and ^
+            for (len = value.size(); len > 0 && value[len - 1] == 0; len--) {}
+
+            if (len == 0) {
+                *this = s_bnZeroInt;
+            } else if (len == 1 && value[0] < kuMaskHighBit) {
+                // Values like (Int32.MaxValue+1) are stored as "0x80000000" and as such cannot be packed into _sign
+                _sign = (negative ? -(i32) value[0] : (i32) value[0]);
+                _bits = container {};
+                // Although Int32.MinValue fits in _sign, we represent this case differently for negate
+                if (_sign == INT_MIN) { *this = s_bnMinInt; }
+            } else {
+                _sign = negative ? -1 : +1;
+                _bits = container(value.begin(), value.begin() + len);
+            }
+            AssertValid();
+        }
+
+    public:
+        // BigInteger.cs Line 622
+        bool isPowerOfTwo() {
+            AssertValid();
+
+            if (_bits.empty()) { return (_sign & (_sign - 1)) == 0 && _sign != 0; }
+
+            if (_sign != 1) { return false; }
+            i32 iu = _bits.size() - 1;
+            if ((_bits[iu] & (_bits[iu] - 1)) != 0) { return false; }
+            while (--iu >= 0) {
+                if (_bits[iu] != 0) { return false; }
+            }
+            return true;
+        }
+
+        // BigInteger.cs Line 645
+        bool isZero() const {
+            AssertValid();
+            return _sign == 0;
+        }
+
+        // BigInteger.cs Line 647
+        bool isOne() const {
+            AssertValid();
+            return _sign == 1 && _bits.empty();
+        }
+
+        // BigInteger.cs Line 649
+        bool isEven() const {
+            AssertValid();
+            return _bits.empty() ? (_sign & 1) == 0 : (_bits[0] & 1) == 0;
+        }
+
+        // BigInteger.cs Line 651
+        i32 sign() const {
+            AssertValid();
+            return (_sign >> (kcbitUint - 1)) - (-_sign >> (kcbitUint - 1));
+        }
+
+    public:
+        u32 *data() {
+            return _bits.data();
+        }
+
+        const u32 *data() const {
+            return _bits.data();
+        }
+
+        u32 size() const {
+            return _bits.size();
+        }
+
+        std::string to_string() const {
+            return formatBigInteger(*this);
+        }
+
+    public:
+        // BigInteger.cs Line 706
+        BigInteger abs() const {
+            auto value = *this;
+            return (value >= Zero) ? value : -value;
+        }
+
+        // BigInteger.cs Line 964
+        i32 GetHashCode() {
+            AssertValid();
+
+            if (_bits.empty()) { return _sign; }
+            i32 hash = _sign;
+            for (i32 iv = _bits.size(); --iv >= 0;) {
+                hash = NumericsHelpers::CombineHash(hash, (i32) _bits[iv]);
+            }
+            return hash;
+        }
+
+        // BigInteger.cs Line 985
+        bool equals(i64 other) const {
+            AssertValid();
+
+            if (_bits.empty()) { return _sign == other; }
+
+            i32 cu;
+            if ((_sign ^ other) < 0 || (cu = _bits.size()) > 2) { return false; }
+
+            u64 uu = other < 0 ? (u64) -other : (u64) other;
+            if (cu == 1) { return _bits[0] == uu; }
+
+            return NumericsHelpers::MakeUlong(_bits[1], _bits[0]) == uu;
+        }
+
+        // BigInteger.cs Line 1021
+        bool equals(const BigInteger &other) const {
+            AssertValid();
+            other.AssertValid();
+
+            if (_sign != other._sign) { return false; }
+            if (_bits == other._bits) { return true; }
+
+            if (_bits.empty() || other._bits.empty()) { return false; }
+            i32 cu = _bits.size();
+            if (cu != other._bits.size()) { return false; }
+            i32 cuDiff = getDiffLength(_bits, other._bits, cu);
+            return cuDiff == 0;
+        }
+
+        // BigInteger.cs Line 1071
+        i32 compareTo(const BigInteger &other) const {
+            AssertValid();
+            other.AssertValid();
+
+            // Different signs, so the comparison is easy.
+            if ((_sign ^ other._sign) < 0) { return _sign < 0 ? -1 : +1; }
+
+            // Same signs
+            if (_bits.empty()) {
+                if (other._bits.empty()) { return _sign < other._sign ? -1 : _sign > other._sign ? +1 : 0; }
+                return -other._sign;
+            }
+            i32 cuThis, cuOther;
+            if (other._bits.empty() || (cuThis = _bits.size()) > (cuOther = other._bits.size())) { return _sign; }
+            if (cuThis < cuOther) { return -_sign; }
+
+            i32 cuDiff = getDiffLength(_bits, other._bits, cuThis);
+            if (cuDiff == 0) { return 0; }
+            return _bits[cuDiff - 1] < other._bits[cuDiff - 1] ? -_sign : _sign;
+        }
+
+
+        static void DnM(const BigInteger &left, const BigInteger &right, BigInteger &q, BigInteger &r) {
+            // TODO
+            assert(false);
+//            if (!left._sign)
+//                q = r = left;
+//            else if (left.size() < right.size())
+//                q = BigInteger(0), r = left;
+//            else {
+//                container cr = container(left._bits), cq = container(left.size() - right.size() + 1);
+//                Divide(cr.data(), cr.size(), right.data(), right.size(), cq.data(), cq.size());
+//                r = BigInteger(std::move(cr), left._sign < 0);
+//                q = BigInteger(std::move(cq), (left._sign < 0) ^ (right._sign < 0));
+//            }
+        }
+
+    public:
+        friend std::istream &operator >>(std::istream &is, BigInteger &value) {
+            std::string s;
+            is >> s;
+            value = BigInteger(s);
+            return is;
+        }
+
+        friend std::ostream &operator <<(std::ostream &os, const BigInteger &value) { return os << value.to_string(); }
+
+        bool operator !() const { return _sign == 0; }
+
+        BigInteger &operator ++() {
+            *this += One;
+            return *this;
+        }
+
+        BigInteger &operator --() {
+            *this -= One;
+            return *this;
+        }
+
+        const BigInteger operator ++(i32) {
+            BigInteger value = *this;
+            *this += One;
+            return value;
+        }
+
+        const BigInteger operator --(i32) {
+            BigInteger value = *this;
+            *this -= One;
+            return value;
+        }
+
+        BigInteger &operator +=(const BigInteger &other) {
+            *this = *this + other;
+            return *this;
+        }
+
+        BigInteger &operator -=(const BigInteger &other) {
+            *this = *this - other;
+            return *this;
+        }
+
+        // BigInteger.cs Line 1510
+        friend BigInteger operator -(const BigInteger &left, const BigInteger &right) {
+            left.AssertValid();
+            right.AssertValid();
+
+            if (left._sign < 0 != right._sign < 0) {
+                return Add(left._bits, left._sign, right._bits, -1 * right._sign);
+            }
+            return Subtract(left._bits, left._sign, right._bits, right._sign);
+        }
+
+        // BigInteger.cs Line 1972
+        BigInteger operator -() const {
+            AssertValid();
+            return BigInteger(-_sign, _bits);
+        }
+
+        // BigInteger.cs Line 1978
+        BigInteger operator +() const {
+            AssertValid();
+            return *this;
+        }
+
+        // BigInteger.cs Line 1994
+        friend BigInteger operator +(const BigInteger &left, const BigInteger &right) {
+            left.AssertValid();
+            right.AssertValid();
+
+            if (left._sign < 0 != right._sign < 0) {
+                return Subtract(left._bits, left._sign, right._bits, -1 * right._sign);
+            }
+            return Add(left._bits, left._sign, right._bits, right._sign);
+        }
+
+        // BigInteger.cs Line 2004
+        friend BigInteger operator *(const BigInteger &left, const BigInteger &right) {
+            left.AssertValid();
+            right.AssertValid();
+
+            bool trivialLeft = left._bits.empty();
+            bool trivialRight = right._bits.empty();
+
+            if (trivialLeft && trivialRight) { return BigInteger((i64) left._sign * right._sign); }
+
+            if (trivialLeft) {
+                container bits = BigIntegerCalculator::Multiply(right._bits, NumericsHelpers::Abs(left._sign));
+                return BigInteger(bits, (left._sign < 0) ^ (right._sign < 0));
+            }
+
+            if (trivialRight) {
+                container bits = BigIntegerCalculator::Multiply(left._bits, NumericsHelpers::Abs(right._sign));
+                return BigInteger(bits, (left._sign < 0) ^ (right._sign < 0));
+            }
+
+            if (left._bits.size() < right._bits.size()) {
+                container bits = BigIntegerCalculator::Multiply(right._bits, left._bits);
+                return BigInteger(bits, (left._sign < 0) ^ (right._sign < 0));
+            } else {
+                container bits = BigIntegerCalculator::Multiply(left._bits, right._bits);
+                return BigInteger(bits, (left._sign < 0) ^ (right._sign < 0));
+            }
+        }
+
+        // BigInteger.cs Line 2047
+        friend BigInteger operator /(const BigInteger &dividend, const BigInteger &divisor) {
+            dividend.AssertValid();
+            divisor.AssertValid();
+
+            bool trivialDividend = dividend._bits.empty();
+            bool trivialDivisor = divisor._bits.empty();
+
+            if (trivialDividend && trivialDivisor) { return BigInteger(dividend._sign / divisor._sign); }
+
+            if (trivialDividend) {
+                // The divisor is non-trivial
+                // and therefore the bigger one
+                return s_bnZeroInt;
+            }
+
+            if (trivialDivisor) {
+                container bits = BigIntegerCalculator::Divide(dividend._bits, NumericsHelpers::Abs(divisor._sign));
+                return BigInteger(bits, (dividend._sign < 0) ^ (divisor._sign < 0));
+            }
+
+            if (dividend._bits.size() < divisor._bits.size()) { return s_bnZeroInt; }
+            else {
+                container bits = BigIntegerCalculator::Divide(dividend._bits, divisor._bits);
+                return BigInteger(bits, (dividend._sign < 0) ^ (divisor._sign < 0));
+            }
+        }
+
+        // BigInteger.cs Line 2084
+        friend BigInteger operator %(const BigInteger &dividend, const BigInteger &divisor) {
+            dividend.AssertValid();
+            divisor.AssertValid();
+
+            bool trivialDividend = dividend._bits.empty();
+            bool trivialDivisor = divisor._bits.empty();
+
+            if (trivialDividend && trivialDivisor) { return BigInteger(dividend._sign % divisor._sign); }
+
+            // The divisor is non-trivial and therefore the bigger one
+            if (trivialDividend) { return dividend; }
+
+            if (trivialDivisor) {
+                u32 remainder = BigIntegerCalculator::Remainder(dividend._bits, NumericsHelpers::Abs(divisor._sign));
+                return BigInteger(dividend._sign < 0 ? -1 * remainder : remainder);
+            }
+
+            if (dividend._bits.size() < divisor._bits.size()) { return dividend; }
+            container bits = BigIntegerCalculator::Remainder(dividend._bits, divisor._bits);
+            return BigInteger(bits, dividend._sign < 0);
+        }
+
+        // BigInteger.cs Line 2118
+        friend bool operator <(const BigInteger &left, const BigInteger &right) { return left.compareTo(right) < 0; }
+
+        // BigInteger.cs Line 2123
+        friend bool operator <=(const BigInteger &left, const BigInteger &right) { return left.compareTo(right) <= 0; }
+
+        // BigInteger.cs Line 2128
+        friend bool operator >(const BigInteger &left, const BigInteger &right) { return left.compareTo(right) > 0; }
+
+        // BigInteger.cs Line 2132
+        friend bool operator >=(const BigInteger &left, const BigInteger &right) { return left.compareTo(right) >= 0; }
+
+        // BigInteger.cs Line 2137
+        friend bool operator ==(const BigInteger &left, const BigInteger &right) { return left.equals(right); }
+
+        // BigInteger.cs Line 2142
+        friend bool operator !=(const BigInteger &left, const BigInteger &right) { return !left.equals(right); }
+
+        // BigInteger.cs Line 2167
+        friend bool operator ==(const BigInteger &left, i64 right) { return left.equals(right); }
+
+        // BigInteger.cs Line 2172
+        friend bool operator !=(const BigInteger &left, i64 right) { return !left.equals(right); }
+
+        // BigInteger.cs Line 2197
+        friend bool operator ==(i64 left, const BigInteger &right) { return right.equals(left); }
+
+        // BigInteger.cs Line 2202
+        friend bool operator !=(i64 left, const BigInteger &right) { return !right.equals(left); }
+
+    private:
+        // BigInteger.cs Line 1476
+        static BigInteger Add(const container &leftBits, i32 leftSign,
+                              const container &rightBits, i32 rightSign) {
+            bool trivialLeft = leftBits.empty();
+            bool trivialRight = rightBits.empty();
+
+            if (trivialLeft && trivialRight) { return BigInteger((i64) leftSign + rightSign); }
+
+            if (trivialLeft) {
+                container bits = BigIntegerCalculator::Add(rightBits, NumericsHelpers::Abs(leftSign));
+                return BigInteger(bits, leftSign < 0);
+            }
+
+            if (trivialRight) {
+                container bits = BigIntegerCalculator::Add(leftBits, NumericsHelpers::Abs(rightSign));
+                return BigInteger(bits, leftSign < 0);
+            }
+
+            if (leftBits.size() < rightBits.size()) {
+                container bits = BigIntegerCalculator::Add(rightBits, leftBits);
+                return BigInteger(bits, leftSign < 0);
+            } else {
+                container bits = BigIntegerCalculator::Add(leftBits, rightBits);
+                return BigInteger(bits, leftSign < 0);
+            }
+        }
+
+        // BigInteger.cs Line 1520
+        static BigInteger Subtract(const container &leftBits, i32 leftSign,
+                                   const container &rightBits, i32 rightSign) {
+            bool trivialLeft = leftBits.empty();
+            bool trivialRight = rightBits.empty();
+
+            if (trivialLeft && trivialRight) { return BigInteger((i64) leftSign - rightSign); }
+
+            if (trivialLeft) {
+                container bits = BigIntegerCalculator::Subtract(rightBits, NumericsHelpers::Abs(leftSign));
+                return BigInteger(bits, leftSign >= 0);
+            }
+
+            if (trivialRight) {
+                container bits = BigIntegerCalculator::Subtract(leftBits, NumericsHelpers::Abs(rightSign));
+                return BigInteger(bits, leftSign < 0);
+            }
+
+            if (BigIntegerCalculator::Compare(leftBits, rightBits) < 0) {
+                container bits = BigIntegerCalculator::Subtract(rightBits, leftBits);
+                return BigInteger(bits, leftSign >= 0);
+            } else {
+                container bits = BigIntegerCalculator::Subtract(leftBits, rightBits);
+                return BigInteger(bits, leftSign < 0);
+            }
+        }
+
+        // BigInteger.cs Line 2313
+        static i32 getDiffLength(const container &rgu1, const container &rgu2, i32 cu) {
+            for (i32 iv = cu; --iv >= 0;) {
+                if (rgu1[iv] != rgu2[iv]) { return iv + 1; }
+            }
+            return 0;
+        }
+
+        // BigNumber.cs Line 601
+        static std::string formatBigInteger(const BigInteger &value) {
+            if (value._bits.empty()) { return std::to_string(value._sign); }
+
+            // First convert to base 10^9.
+            const u32 kuBase = 1000000000; // 10^9
+            const i32 kcchBase = 9;
+
+            i32 cuSrc = value._bits.size();
+            i32 cuMax = cuSrc * 10 / 9 + 2;
+            container rguDst = container(cuMax);
+            i32 cuDst = 0;
+
+            for (i32 iuSrc = cuSrc; --iuSrc >= 0;) {
+                u32 uCarry = value._bits[iuSrc];
+                for (i32 iuDst = 0; iuDst < cuDst; iuDst++) {
+                    assert(rguDst[iuDst] < kuBase);
+                    u64 uuRes = NumericsHelpers::MakeUlong(rguDst[iuDst], uCarry);
+                    rguDst[iuDst] = (u32) (uuRes % kuBase);
+                    uCarry = (u32) (uuRes / kuBase);
+                }
+                if (uCarry != 0) {
+                    rguDst[cuDst++] = uCarry % kuBase;
+                    uCarry /= kuBase;
+                    if (uCarry != 0) { rguDst[cuDst++] = uCarry; }
+                }
+            }
+
+            i32 cchMax = cuDst * kcchBase;
+            i32 rgchBufSize = cchMax + 1;
+            char *rgch = new char[rgchBufSize];
+            i32 ichDst = cchMax;
+
+            for (i32 iuDst = 0; iuDst < cuDst - 1; iuDst++) {
+                u32 uDig = rguDst[iuDst];
+                assert(uDig < kuBase);
+                for (i32 cch = kcchBase; --cch >= 0;) {
+                    rgch[--ichDst] = (char) ('0' + uDig % 10);
+                    uDig /= 10;
+                }
+            }
+            for (u32 uDig = rguDst[cuDst - 1]; uDig != 0;) {
+                rgch[--ichDst] = (char) ('0' + uDig % 10);
+                uDig /= 10;
+            }
+
+            // Format Round-trip decimal
+            // This format is supported for integral types only. The number is converted to a string of
+            // decimal digits (0-9), prefixed by a minus sign if the number is negative. The precision
+            // specifier indicates the minimum number of digits desired in the resulting string. If required,
+            // the number is padded with zeros to its left to produce the number of digits given by the
+            // precision specifier.
+            i32 digits = 0;
+            i32 numDigitsPrinted = cchMax - ichDst;
+            while (digits > 0 && digits > numDigitsPrinted) { // pad leading zeros
+                rgch[--ichDst] = '0';
+                digits--;
+            }
+            if (value._sign < 0) { rgch[--ichDst] = '-'; }
+
+            i32 resultLength = cchMax - ichDst;
+            return std::string(rgch + ichDst, rgch + cchMax);
+        }
+
+    private:
+        // BigInteger.cs Line 2324
+        void AssertValid() const {
+#ifndef NDEBUG
+            if (!_bits.empty()) {
+                // _sign must be +1 or -1 when _bits is non-null
+                assert(_sign == 1 || _sign == -1);
+                // Wasted space: _bits[0] could have been packed into _sign
+                assert(_bits.size() > 1 || _bits[0] >= kuMaskHighBit);
+                // Wasted space: leading zeros could have been truncated
+                assert(_bits.back() != 0);
+            } else {
+                // Int32.MinValue should not be stored in the _sign field
+                assert(_sign > INT_MIN);
+            }
+#endif // NDEBUG
+        }
+
+    private:
+        // For values INT_MIN < n <= INT_MAX, the _value is stored in sign and _bits is null.
+        // For all other values, sign is +1 or -1 and the bits are in _bits
+        i32 _sign;
+        container _bits;
+    }; // class BigInteger
+
+    const BigInteger BigInteger::s_bnMinInt = BigInteger(-1, { kuMaskHighBit });
+    const BigInteger BigInteger::s_bnOneInt = BigInteger(1);
+    const BigInteger BigInteger::s_bnZeroInt = BigInteger(0);
+    const BigInteger BigInteger::s_bnMinusOneInt = BigInteger(-1);
+
+    const BigInteger BigInteger::Zero = s_bnZeroInt;
+    const BigInteger BigInteger::One = s_bnOneInt;
+    const BigInteger BigInteger::MinusOne = s_bnMinusOneInt;
+
+    typedef BigInteger BigInt;
+} // namespace cul
+
+namespace std {
+    cul::BigInteger abs(const cul::BigInteger &x) {
+        return x.abs();
+    }
+
+    string to_string(const cul::BigInteger &x) {
+        return x.to_string();
+    }
+} // namespace std
+
+#endif // UNLIMITED_CODE_WORKS_BIGINT

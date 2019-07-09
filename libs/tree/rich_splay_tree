@@ -1,0 +1,352 @@
+//
+// Created by ChouUn on 2019/6/29.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_SPLAY_TREE
+#define UNLIMITED_CODE_WORKS_SPLAY_TREE
+
+#include <tuple>
+#include <limits>
+
+namespace cul {
+    enum NodeRelation : u32 {
+        L = 0u, R = 1u
+    }; // enum NodeRelation
+
+    template <class T, class U = std::tuple<>>
+    class rich_splay_tree_node;
+
+    template <class T, class U = std::tuple<>>
+    class rich_splay_tree;
+
+    template <class T, class U>
+    void rich_splay_tree_node_push(rich_splay_tree_node<T, U> *__node);
+
+    template <class T, class U>
+    void rich_splay_tree_node_pull(rich_splay_tree_node<T, U> *__node);
+
+    template <class T, class U>
+    class rich_splay_tree_node {
+    public:
+        typedef T key_type;
+        typedef U value_type;
+
+    private:
+        typedef rich_splay_tree_node<key_type, value_type> _Self;
+        typedef rich_splay_tree<key_type, value_type> _Tree;
+
+    public:
+        friend class rich_splay_tree<key_type, value_type>;
+
+    public:
+        rich_splay_tree_node(_Tree *__tree, _Self *__parent, const key_type &__key, const value_type &__value) :
+                _tree(__tree), _children { nullptr, nullptr }, _parent(__parent), _size(1u),
+                _key(__key), _value(__value) {}
+
+        ~rich_splay_tree_node() {
+            if (_children[L] != nullptr) { delete _children[L]; }
+            if (_children[R] != nullptr) { delete _children[R]; }
+        }
+
+    public:
+        friend void rich_splay_tree_node_push<T, U>(_Self *__node);
+
+        friend void rich_splay_tree_node_pull<T, U>(_Self *__node);
+
+        const key_type &key() const { return _key; }
+
+        const value_type &value() const { return _value; }
+
+        _Self *parent() const { return _parent; }
+
+        _Self *child(NodeRelation __rel) {
+            rich_splay_tree_node_push(this);
+            return _child(__rel);
+        }
+
+        u32 size() const { return _size; }
+
+        u32 child_size(NodeRelation __rel) {
+            rich_splay_tree_node_push(this);
+
+            return _child_size(__rel);
+        }
+
+        NodeRelation relation() const {
+            assert(_parent != nullptr);
+
+            rich_splay_tree_node_push(_parent);
+
+            return _relation();
+        }
+
+    private:
+        _Self *_child(NodeRelation __rel) const { return _children[__rel]; }
+
+        u32 _child_size(NodeRelation __rel) const {
+            _Self *__child = _child(__rel);
+            return __child ? __child->_size : 0;
+        }
+
+        NodeRelation _relation() const {
+            assert(_parent != nullptr);
+
+            if (this == _parent->_child(L)) { return L; }
+            if (this == _parent->_child(R)) { return R; }
+
+            assert(false);
+        }
+
+    public:
+        void rotate() {
+            assert(_parent != nullptr);
+
+            // record old parent and grand parent
+            _Self *__parent = _parent;
+            _Self *__grand_parent = __parent->_parent;
+
+            // push
+            if (__grand_parent) { rich_splay_tree_node_push(__grand_parent); }
+            rich_splay_tree_node_push(__parent);
+            rich_splay_tree_node_push(this);
+
+            // get the another side child
+            NodeRelation __rel = _relation();
+            _Self *__child = _children[__rel ^ 1u];
+
+            // break the edge between this and the parent
+            if (__grand_parent) {
+                u32 __parent_rel = __parent->_relation();
+                __grand_parent->_children[__parent_rel] = this;
+            }
+            _parent = __grand_parent;
+
+            // link the child to the parent as same side child
+            __parent->_children[__rel] = __child;
+            if (__child) { __child->_parent = __parent; }
+
+            // link the parent to this as another side child
+            _children[__rel ^ 1u] = __parent;
+            __parent->_parent = this;
+
+            // pull
+            rich_splay_tree_node_pull(__parent);
+            rich_splay_tree_node_pull(this);
+
+            // check root of tree
+            if (!_parent) { _tree->_root = this; }
+        }
+
+        void splay(_Self *__target = nullptr) {
+            while (_parent != __target) {
+                _Self *__grand_parent = _parent->_parent;
+                if (__grand_parent == __target) {
+                    rotate();
+                } else {
+                    assert(__grand_parent != nullptr);
+
+                    if (_parent->relation() == relation()) { // push implicitly
+                        _parent->rotate();
+                        rotate();
+                    } else {
+                        rotate();
+                        rotate();
+                    }
+                }
+            }
+        }
+
+        _Self *pred() {
+            splay();
+
+            _Self *__node = this->child(L); // push implicitly
+            while (__node->child(R)) { __node = __node->_child(R); } // push implicitly
+
+            return __node;
+        }
+
+        _Self *succ() {
+            splay();
+
+            _Self *__node = this->child(R); // push implicitly
+            while (__node->child(L)) { __node = __node->_child(L); } // push implicitly
+            return __node;
+        }
+
+    private:
+        _Tree *_tree;
+        _Self *_children[2];
+        _Self *_parent;
+        u32 _size;
+        key_type _key;
+        value_type _value;
+    }; // class rich_splay_tree_node
+
+    template <class T, class U>
+    class rich_splay_tree {
+    public:
+        typedef T key_type;
+        typedef U value_type;
+
+    private:
+        typedef rich_splay_tree<key_type, value_type> _Self;
+        typedef rich_splay_tree_node<key_type, value_type> _Node;
+
+    public:
+        friend class rich_splay_tree_node<key_type, value_type>;
+
+    public:
+        explicit rich_splay_tree(value_type __begin_value = {}, value_type __end_velue = {}) : _root(nullptr) {
+            _begin = insert(std::numeric_limits<key_type>::min(), __begin_value);
+            _end = insert(std::numeric_limits<key_type>::max(), __end_velue);
+        }
+
+    public:
+        u32 size() const {
+            assert(_root != nullptr);
+
+            return _root->size() - 2;
+        }
+
+        _Node *begin() const { _begin->succ(); }
+
+        _Node *end() const { return _end; }
+
+    public:
+        _Node *insert(const key_type &__key, const value_type &__value = {}) {
+            // find the position to insert the node
+            _Node **__pos = &_root;
+            _Node *__parent = nullptr;
+            while (*__pos != nullptr) {
+                __parent = *__pos;
+                rich_splay_tree_node_push(__parent); // will access children later
+
+                auto __rel = static_cast<NodeRelation>((__key < __parent->_key) ^ 1u);
+                __pos = &__parent->_children[__rel];
+            }
+
+            // fill the node
+            auto *__node = new _Node { this, __parent, __key, __value };
+            *__pos = __node;
+
+            __node->splay();
+
+            return __node;
+        }
+
+        _Node *find(const key_type &__key) {
+            _Node *__node = _root;
+            while (__node && __node->_key != __key) {
+                auto __rel = static_cast<NodeRelation>((__key < __node->_key) ^ 1u);
+                __node = __node->child(__rel); // push implicitly
+            }
+
+            if (__node) { __node->pred()->succ()->splay(); }
+
+            return __node;
+        }
+
+        u32 rank(const key_type &__key) {
+            return lower_bound(__key)->child_size(L);
+            return find(__key)->child_size(L); // push and pull implicitly
+        }
+
+        _Node *kth(u32 k) {
+            k += 1; // exclude the interference from the minimum node
+
+            _Node *__node = _root;
+            while (__node->child_size(L) != k - 1) { // push implicitly
+                if (__node->_child_size(L) < k - 1) {
+                    k -= __node->_child_size(L) + 1;
+                    __node = __node->_child(R);
+                } else {
+                    __node = __node->_child(L);
+                }
+            }
+
+            __node->splay();
+
+            return __node;
+        }
+
+        _Node *lower_bound(const key_type &__key) {
+            _Node *__node = _root;
+            while (true) {
+                rich_splay_tree_node_push(__node);
+                _Node *__next = __node->_key < __key ? __node->_child(R) : __node->_child(L);
+                if (!__next) { break; }
+                __node = __next;
+            }
+            if (__node->_key < __key) { __node = __node->succ(); }
+
+            __node->splay();
+
+            return __node;
+        }
+
+        _Node *upper_bound(const key_type &__key) {
+            _Node *__node = _root;
+            while (true) {
+                rich_splay_tree_node_push(__node);
+                _Node *__next = __key < __node->_key ? __node->_child(L) : __node->_child(R);
+                if (!__next) { break; }
+                __node = __next;
+            }
+            if (!(__key < __node->_key)) { __node = __node->succ(); }
+
+            __node->splay();
+
+            return __node;
+        }
+
+        void erase(_Node *__lower, _Node *__upper) {
+            assert(__lower != _begin);
+
+            _Node *__pred = __lower->pred();
+
+            __pred->splay();
+            __upper->splay(__pred); // push implicitly
+
+            delete __upper->child(L); // push implicitly
+            __upper->_children[L] = nullptr;
+
+            rich_splay_tree_node_pull(__upper);
+            rich_splay_tree_node_pull(__pred);
+        }
+
+        void erase(_Node *__node) {
+            assert(__node != nullptr);
+            assert(__node != _end);
+
+            erase(__node, __node->succ());
+        }
+
+        void erase(const key_type &__key) {
+            _Node *__node = find(__key);
+
+            assert(__node != _end);
+
+            erase(__node);
+        }
+
+    private:
+
+    private:
+        _Node *_root;
+        _Node *_begin;
+        _Node *_end;
+    }; // class rich_splay_tree
+
+    template <class T, class U>
+    void rich_splay_tree_node_push(rich_splay_tree_node<T, U> *__node) {
+        // do nothing
+        (void) __node;
+    }
+
+    template <class T, class U>
+    void rich_splay_tree_node_pull(rich_splay_tree_node<T, U> *__node) {
+        __node->_size = __node->_child_size(L) + __node->_child_size(R) + 1;
+    }
+} // namespace cul
+
+#endif // UNLIMITED_CODE_WORKS_SPLAY_TREE

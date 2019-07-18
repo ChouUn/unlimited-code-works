@@ -1,0 +1,377 @@
+//
+// Created by ChouUn on 2019-07-06.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_SPLAY_TREE
+#define UNLIMITED_CODE_WORKS_SPLAY_TREE
+
+#include <tuple>
+#include <limits>
+#include <vector>
+#include <array>
+#include <cul/std>
+#include <ds/_base.h>
+
+namespace cul {
+    template <class T, class U = std::tuple<>>
+    class splay_tree;
+
+    template <class T, class U = std::tuple<>>
+    void splay_tree_node_push(splay_tree<T, U> *__tree, u32 __this);
+
+    template <class T, class U = std::tuple<>>
+    void splay_tree_node_pull(splay_tree<T, U> *__tree, u32 __this);
+
+    template <class T, class U>
+    class splay_tree {
+    public:
+        typedef T key_type;
+        typedef U value_type;
+        typedef u32 size_type;
+
+    private:
+        typedef splay_tree<key_type, value_type> _Self;
+
+    public:
+        friend void splay_tree_node_push<T, U>(splay_tree<T, U> *__tree, u32 __this);
+
+        friend void splay_tree_node_pull<T, U>(splay_tree<T, U> *__tree, u32 __this);
+
+    public:
+        explicit splay_tree(value_type __begin_value = {}, value_type __end_velue = {})
+                : _root(null_index), _size(0) {
+            _begin = insert(std::numeric_limits<key_type>::min(), __begin_value);
+            _end = insert(std::numeric_limits<key_type>::max(), __end_velue);
+        }
+
+    public:
+        size_type size() const {
+            assert(_root != null_index);
+
+            return _get_size(_root) - 2;
+        }
+
+        size_type begin() const { succ(_begin); }
+
+        size_type end() const { return _end; }
+
+        const key_type &get_key(size_type __this) const { return _keys[__this]; }
+
+        const value_type &get_value(size_type __this) const { return _values[__this]; }
+
+        size_type get_child(size_type __this, NodeRelation __rel) {
+            splay_tree_node_push(this, __this);
+
+            return _get_child(__this, __rel);
+        }
+
+        size_type get_child_size(size_type __this, NodeRelation __rel) {
+            splay_tree_node_push(this, __this);
+
+            return _get_child_size(__this, __rel);
+        }
+
+        NodeRelation get_relation(size_type __this) {
+            size_type __parent = _parent[__this];
+
+            assert(__parent != null_index);
+
+            splay_tree_node_push(this, __parent);
+
+            return _get_relation(__this);
+        }
+
+    private:
+        size_type _get_child(size_type __this, NodeRelation __rel) const { return _children[__this][__rel]; }
+
+        size_type _get_size(size_type __this) const { return _sizes[__this]; }
+
+        size_type _get_child_size(size_type __this, NodeRelation __rel) const {
+            size_type __child = _children[__this][__rel];
+            return __child != null_index ? _sizes[__child] : 0;
+        }
+
+        NodeRelation _get_relation(size_type __this) const {
+            size_type __parent = _parent[__this];
+
+            assert(__parent != null_index);
+
+            if (__this == _children[__parent][L]) { return L; }
+            if (__this == _children[__parent][R]) { return R; }
+
+            assert(false);
+        }
+
+    private:
+        void _delete(size_type __this) {
+            _idle.push_back(__this);
+
+            size_type __l_child = _children[__this][L];
+            size_type __r_child = _children[__this][R];
+            if (_children[__this][L] != null_index) { _delete(_children[__this][L]); }
+            if (_children[__this][R] != null_index) { _delete(_children[__this][R]); }
+        }
+
+        void _rotate(size_type __this) {
+            // record old parent and grand parent
+            size_type __parent = _parent[__this];
+            size_type __grand_parent = _parent[__parent];
+
+            assert(__parent != null_index);
+
+            // push
+            if (__grand_parent != null_index) { splay_tree_node_push(this, __grand_parent); }
+            splay_tree_node_push(this, __parent);
+            splay_tree_node_push(this, __this);
+
+            // get the another side child
+            NodeRelation __rel = _get_relation(__this);
+            size_type __child = _children[__this][__rel ^ 1u];
+
+            // break the edge between this and the parent
+            if (__grand_parent != null_index) {
+                NodeRelation __parent_rel = _get_relation(__parent);
+                _children[__grand_parent][__parent_rel] = __this;
+            }
+            _parent[__this] = __grand_parent;
+
+            // link the child to the parent as same side child
+            _children[__parent][__rel] = __child;
+            if (__child != null_index) { _parent[__child] = __parent; }
+
+            // link the parent to this as another side child
+            _children[__this][__rel ^ 1u] = __parent;
+            _parent[__parent] = __this;
+
+            // pull
+            splay_tree_node_pull(this, __parent);
+            splay_tree_node_pull(this, __this);
+
+            // check root of tree
+            if (__grand_parent == null_index) { this->_root = __this; }
+        }
+
+        void _splay(size_type __this, size_type __target = null_index) {
+            while (_parent[__this] != __target) {
+                size_type __grand_parent = _parent[_parent[__this]];
+                if (__grand_parent == __target) {
+                    _rotate(__this);
+                } else {
+                    assert(__grand_parent != null_index);
+
+                    if (get_relation(_parent[__this]) == get_relation(__this)) {  // push implicitly
+                        _rotate(_parent[__this]);
+                        _rotate(__this);
+                    } else {
+                        _rotate(__this);
+                        _rotate(__this);
+                    }
+                }
+            }
+        }
+
+    public:
+        size_type pred(size_type __this) {
+            _splay(__this);
+
+            size_type __node = get_child(__this, L); // push implicitly
+            while (get_child(__node, R) != null_index) { __node = _children[__node][R]; } // push implicitly
+            return __node;
+        }
+
+        size_type succ(size_type __this) {
+            _splay(__this);
+
+            size_type __node = get_child(__this, R); // push implicitly
+            while (get_child(__node, L) != null_index) { __node = _children[__node][L]; } // push implicitly
+            return __node;
+        }
+
+    private:
+        size_type _new_index() {
+            if (_idle.empty()) {
+                size_type __idx = _size;
+
+                _size += 1;
+                _children.emplace_back();
+                _parent.emplace_back();
+                _sizes.emplace_back();
+                _keys.emplace_back();
+                _values.emplace_back();
+
+                return __idx;
+            } else {
+                size_type __idx = _idle.back();
+                _idle.pop_back();
+                return __idx;
+            }
+        }
+
+        size_type _new_node(size_type __parent, const key_type &__key, const value_type &__value = {}) {
+            size_type __idx = _new_index();
+
+            _children[__idx][L] = null_index;
+            _children[__idx][R] = null_index;
+            _parent[__idx] = __parent;
+            _sizes[__idx] = 1u;
+            _keys[__idx] = __key;
+            _values[__idx] = __value;
+
+            return __idx;
+        }
+
+
+    public:
+        size_type insert(const key_type &__key, const value_type &__value = {}) {
+            // fill the node
+            // create nodes in advance to avoid vector reallocation of memory
+            size_type __node = _new_node(null_index, __key, __value);
+
+            // find the position to insert the node
+            size_type *__pos = &_root;
+            size_type __parent = null_index;
+            while (*__pos != null_index) {
+                __parent = *__pos;
+                splay_tree_node_push(this, __parent); // will access children later
+
+                auto __rel = static_cast<NodeRelation>((__key < _keys[__parent]) ^ 1u);
+                __pos = &_children[__parent][__rel];
+            }
+
+            _parent[__node] = __parent;
+            *__pos = __node;
+
+            _splay(__node);
+
+            return __node;
+        }
+
+        size_type find(const key_type &__key) {
+            size_type __node = _root;
+            while (__node != null_index && _keys[__node] != __key) {
+                auto __rel = static_cast<NodeRelation>((__key < _keys[__node]) ^ 1u);
+                __node = get_child(__node, __rel); // push implicitly
+            }
+
+            if (__node != null_index) { _splay(succ(pred(__node))); }
+
+            return __node;
+        }
+
+        size_type rank(const key_type &__key) {
+            return get_child_size(lower_bound(__key), L); // push and pull implicitly
+        }
+
+        size_type kth(size_type k) {
+            k += 1; // exclude the interference from the minimum node
+
+            size_type __node = _root;
+            while (get_child_size(__node, L) != k - 1) { // push implicitly
+                size_type __child_size = _get_child_size(__node, L);
+                if (__child_size < k - 1) {
+                    k -= __child_size + 1;
+                    __node = _get_child(__node, R);
+                } else {
+                    __node = _get_child(__node, L);
+                }
+            }
+
+            _splay(__node);
+
+            return __node;
+        }
+
+        size_type lower_bound(const key_type &__key) {
+            size_type __node = _root;
+            while (true) {
+                splay_tree_node_push(this, __node);
+                auto __rel = static_cast<NodeRelation>(_keys[__node] < __key);
+                size_type __next = _get_child(__node, __rel);
+                if (__next == null_index) { break; }
+                __node = __next;
+            }
+            if (_keys[__node] < __key) { __node = succ(__node); }
+
+            _splay(__node);
+
+            return __node;
+        }
+
+        size_type upper_bound(const key_type &__key) {
+            size_type __node = _root;
+            while (true) {
+                splay_tree_node_push(this, __node);
+                auto __rel = static_cast<NodeRelation>((__key < _keys[__node]) ^ 1u);
+                size_type __next = _get_child(__node, __rel);
+                if (__next == null_index) { break; }
+                __node = __next;
+            }
+            if (!(__key < _keys[__node])) { __node = succ(__node); }
+
+            _splay(__node);
+
+            return __node;
+        }
+
+        void erase(size_type __lower, size_type __upper) {
+            assert(__lower != _begin);
+
+            size_type __pred = pred(__lower);
+
+            _splay(__pred);
+            _splay(__upper, __pred); // push implicitly
+
+            _delete(get_child(__upper, L)); // push implicitly
+            _children[__upper][L] = null_index;
+
+            splay_tree_node_pull(this, __upper);
+            splay_tree_node_pull(this, __pred);
+        }
+
+        void erase(size_type __node) {
+            assert(__node != null_index);
+            assert(__node != _end);
+
+            erase(__node, succ(__node));
+        }
+
+        void erase_by_key(const key_type &__key) {
+            size_type __node = find(__key);
+
+            assert(__node != _end);
+
+            erase(__node);
+        }
+
+    private:
+
+    private:
+        size_type _root;
+        size_type _begin;
+        size_type _end;
+        size_type _size;
+        std::vector<size_type> _idle;
+
+        std::vector<std::array<size_type, 2>> _children;
+        std::vector<size_type> _parent;
+        std::vector<size_type> _sizes;
+
+        std::vector<key_type> _keys;
+        std::vector<value_type> _values;
+    }; // class splay_tree
+
+    template <class T, class U>
+    void splay_tree_node_push(splay_tree<T, U> *__tree, u32 __this) {
+        // do nothing
+        (void) __tree;
+        (void) __this;
+    }
+
+    template <class T, class U>
+    void splay_tree_node_pull(splay_tree<T, U> *__tree, u32 __this) {
+        __tree->_sizes[__this] = __tree->_get_child_size(__this, L) + __tree->_get_child_size(__this, R) + 1;
+    }
+
+} // namespace cul
+
+#endif //UNLIMITED_CODE_WORKS_SPLAY_TREE

@@ -52,7 +52,9 @@ G = nx.DiGraph()
 for key, value in mapping.items():
     for to in value[0]:
         G.add_edge(key, to)
-output = []
+output = ['''
+#define NDEBUG
+''']
 for key in reversed(list(nx.topological_sort(G))):
     output.append(mapping[key][1])
 output = '\n'.join(output)

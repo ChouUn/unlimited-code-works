@@ -61,4 +61,4 @@ u32 popcount(u32 x) { return __builtin_popcount(x); }
 u64 popcount(u64 x) { return __builtin_popcountll(x); }
 
 
-#endif //UNLIMITED_CODE_WORKS_BUILTIN
+#endif // UNLIMITED_CODE_WORKS_BUILTIN

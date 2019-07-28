@@ -31,15 +31,14 @@ namespace cul {
 
     private:
         typedef splay_tree_node<key_type, value_type> _Self;
-        typedef splay_tree<key_type, value_type> _Tree;
 
     public:
         friend class splay_tree<key_type, value_type>;
 
     public:
-        splay_tree_node(_Tree *__tree, _Self *__parent, const key_type &__key, const value_type &__value) :
-                _tree(__tree), _children { nullptr, nullptr }, _parent(__parent), _size(1u),
-                _key(__key), _value(__value) {}
+        splay_tree_node(_Self **__root, _Self *__parent, const key_type &__key, const value_type &__value) :
+                _root(__root), _children { nullptr, nullptr }, _parent(__parent), _size(1u), _key(__key),
+                _value(__value) {}
 
         ~splay_tree_node() {
             if (_children[L] != nullptr) { delete _children[L]; }
@@ -52,6 +51,8 @@ namespace cul {
         friend void splay_tree_node_pull<T, U>(_Self *__node);
 
         const key_type &key() const { return _key; }
+
+        value_type &value() { return _value; }
 
         const value_type &value() const { return _value; }
 
@@ -70,7 +71,7 @@ namespace cul {
             return _child_size(__rel);
         }
 
-        NodeRelation relation() const {
+        NodeRelation relation() {
             assert(_parent != nullptr);
 
             splay_tree_node_push(_parent);
@@ -132,7 +133,7 @@ namespace cul {
             splay_tree_node_pull(this);
 
             // check root of tree
-            if (!_parent) { _tree->_root = this; }
+            if (!_parent) { *_root = this; }
         }
 
         void splay(_Self *__target = nullptr) {
@@ -171,7 +172,7 @@ namespace cul {
         }
 
     private:
-        _Tree *_tree;
+        _Self **_root;
         _Self *_children[2];
         _Self *_parent;
         u32 _size;
@@ -184,6 +185,7 @@ namespace cul {
     public:
         typedef T key_type;
         typedef U value_type;
+        typedef splay_tree_node<key_type, value_type> node_type;
 
     private:
         typedef splay_tree<key_type, value_type> _Self;
@@ -205,9 +207,9 @@ namespace cul {
             return _root->size() - 2;
         }
 
-        _Node *begin() const { _begin->succ(); }
+        _Node *begin() { return _begin->succ(); }
 
-        _Node *end() const { return _end; }
+        _Node *end() { return _end; }
 
     public:
         _Node *insert(const key_type &__key, const value_type &__value = {}) {
@@ -223,7 +225,7 @@ namespace cul {
             }
 
             // fill the node
-            auto *__node = new _Node { this, __parent, __key, __value };
+            auto *__node = new _Node { &_root, __parent, __key, __value };
             *__pos = __node;
 
             __node->splay();
@@ -244,8 +246,7 @@ namespace cul {
         }
 
         u32 rank(const key_type &__key) {
-            return lower_bound(__key)->child_size(L);
-            return find(__key)->child_size(L); // push and pull implicitly
+            return lower_bound(__key)->child_size(L); // push and pull implicitly
         }
 
         _Node *kth(u32 k) {
@@ -264,6 +265,16 @@ namespace cul {
             __node->splay();
 
             return __node;
+        }
+
+        _Node *select(u32 __lower_k, u32 __upper_k) { // [__lower_k, __upper_k)
+            _Node *__pred = kth(__lower_k - 1);
+            _Node *__upper = kth(__upper_k);
+
+            __pred->splay();
+            __upper->splay(__pred); // push implicitly
+
+            return __upper->child(L); // push implicitly
         }
 
         _Node *lower_bound(const key_type &__key) {
@@ -325,8 +336,6 @@ namespace cul {
 
             erase(__node);
         }
-
-    private:
 
     private:
         _Node *_root;

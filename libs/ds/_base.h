@@ -16,4 +16,4 @@ namespace cul {
     }; // enum NodeRelation
 } // namespace cul
 
-#endif //UNLIMITED_CODE_WORKS__BASE
+#endif // UNLIMITED_CODE_WORKS__BASE

@@ -1,0 +1,250 @@
+//
+// Created by ChouUn on 2019/7/27.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_LINK_CUT_TREE
+#define UNLIMITED_CODE_WORKS_LINK_CUT_TREE
+
+#include <tuple>
+#include <limits>
+#include <cul/std>
+#include <ds/_base.h>
+
+namespace cul {
+    template <class T = std::tuple<>>
+    class link_cut_tree_node;
+
+    template <class T = std::tuple<>>
+    class link_cut_tree;
+
+    template <class T>
+    void link_cut_tree_node_push(link_cut_tree_node<T> *__node);
+
+    template <class T>
+    void link_cut_tree_node_pull(link_cut_tree_node<T> *__node);
+
+    template <class T>
+    class link_cut_tree_node {
+    public:
+        typedef T value_type;
+
+    private:
+        typedef link_cut_tree_node<value_type> _Self;
+        typedef link_cut_tree<value_type> _Tree;
+
+    public:
+        friend class link_cut_tree<value_type>;
+
+    public:
+        link_cut_tree_node(_Self *__parent, const value_type &__value) :
+                _children { nullptr, nullptr }, _parent(__parent), _path_parent(nullptr), _reversed(false), _value(__value) {}
+
+        ~link_cut_tree_node() {
+            if (_children[L] != nullptr) { delete _children[L]; }
+            if (_children[R] != nullptr) { delete _children[R]; }
+        }
+
+    public:
+        friend void link_cut_tree_node_push<T>(_Self *__node);
+
+        friend void link_cut_tree_node_pull<T>(_Self *__node);
+
+        value_type &value() { return _value; }
+
+        const value_type &value() const { return _value; }
+
+        _Self *parent() const { return _parent; }
+
+        _Self *child(NodeRelation __rel) {
+            link_cut_tree_node_push(this);
+            return _child(__rel);
+        }
+
+        u32 child_size(NodeRelation __rel) {
+            link_cut_tree_node_push(this);
+
+            return _child_size(__rel);
+        }
+
+        NodeRelation relation() {
+            assert(_parent != nullptr);
+
+            link_cut_tree_node_push(_parent);
+
+            return _relation();
+        }
+
+    private:
+        _Self *_child(NodeRelation __rel) const { return _children[__rel]; }
+
+        u32 _child_size(NodeRelation __rel) const {
+            _Self *__child = _child(__rel);
+            return __child ? __child->_size : 0;
+        }
+
+        NodeRelation _relation() const {
+            assert(_parent != nullptr);
+
+            if (this == _parent->_child(L)) { return L; }
+            if (this == _parent->_child(R)) { return R; }
+
+            throw std::runtime_error("invalid relation");
+        }
+
+    public:
+        void rotate() {
+            assert(_parent != nullptr);
+
+            // record old parent and grand parent
+            _Self *__parent = _parent;
+            _Self *__grand_parent = __parent->_parent;
+
+            // push
+            if (__grand_parent) { link_cut_tree_node_push(__grand_parent); }
+            link_cut_tree_node_push(__parent);
+            link_cut_tree_node_push(this);
+
+            // path_parent
+            std::swap(_path_parent, __parent->_path_parent);
+
+            // get the another side child
+            NodeRelation __rel = _relation();
+            _Self *__child = _children[__rel ^ 1u];
+
+            // break the edge between this and the parent
+            if (__grand_parent) {
+                u32 __parent_rel = __parent->_relation();
+                __grand_parent->_children[__parent_rel] = this;
+            }
+            _parent = __grand_parent;
+
+            // link the child to the parent as same side child
+            __parent->_children[__rel] = __child;
+            if (__child) { __child->_parent = __parent; }
+
+            // link the parent to this as another side child
+            _children[__rel ^ 1u] = __parent;
+            __parent->_parent = this;
+
+            // pull
+            link_cut_tree_node_pull(__parent);
+            link_cut_tree_node_pull(this);
+        }
+
+        void splay(_Self *__target = nullptr) {
+            while (_parent != __target) {
+                _Self *__grand_parent = _parent->_parent;
+                if (__grand_parent == __target) {
+                    rotate();
+                } else {
+                    assert(__grand_parent != nullptr);
+
+                    if (_parent->relation() == relation()) { // push implicitly
+                        _parent->rotate();
+                        rotate();
+                    } else {
+                        rotate();
+                        rotate();
+                    }
+                }
+            }
+        }
+
+        void expose() {
+            splay();
+
+            link_cut_tree_node_push(this);
+            if (_children[R]) {
+                _Self *__node = _children[R];
+                __node->_parent = nullptr;
+                __node->_path_parent = this;
+
+                _children[R] = nullptr;
+
+                link_cut_tree_node_pull(this);
+            }
+        }
+
+        bool splice() {
+            splay();
+            if (_path_parent == nullptr) { return false; }
+
+            _path_parent->expose();
+            _path_parent->_children[R] = this;
+
+            _parent = _path_parent;
+            _path_parent = nullptr;
+
+            link_cut_tree_node_pull(_parent);
+
+            return true;
+        }
+
+        void access() {
+            expose();
+            while (splice());
+        }
+
+        void evert() {
+            access();
+            splay();
+            _reversed ^= 1;
+        }
+
+    private:
+        _Self **_root;
+        _Self *_children[2];
+        _Self *_parent;
+        _Self *_path_parent;
+        bool _reversed;
+        value_type _value;
+    }; // link_cut_tree_node
+
+    template <class T>
+    class link_cut_tree {
+    public:
+        typedef T value_type;
+        typedef link_cut_tree_node<value_type> node_type;
+
+    private:
+        typedef link_cut_tree_node<value_type> _Node;
+
+    public:
+        _Node *insert(const value_type &__value = {}) {
+            auto *__node = new _Node { nullptr, __value };
+            return __node;
+        }
+
+        void link(_Node *__u, _Node *__v) {
+            __v->evert();
+            __v->_path_parent = __u;
+        }
+
+        void cut(_Node *__u, _Node *__v) {
+            __u->evert();
+            __v->access();
+            __v->splay();
+            link_cut_tree_node_push(__v);
+            __v->_children[L]->_parent = nullptr;
+            __v->_children[L] = nullptr;
+            link_cut_tree_node_pull(__v);
+        }
+    }; // link_cut_tree
+
+    template <class T>
+    void link_cut_tree_node_push(link_cut_tree_node<T> *__node) {
+        if (__node->_reversed) {
+            std::swap(__node->_children[L], __node->_children[R]);
+            if (__node->_children[L]) { __node->_children[L]->_reversed ^= 1; }
+            if (__node->_children[R]) { __node->_children[R]->_reversed ^= 1; }
+            __node->_reversed = false;
+        }
+    }
+
+    template <class T>
+    void link_cut_tree_node_pull(link_cut_tree_node<T> *__node) {
+        (void)__node;
+    }
+} // namespace cul
+
+#endif // UNLIMITED_CODE_WORKS_LINK_CUT_TREE

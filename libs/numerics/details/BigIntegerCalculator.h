@@ -77,7 +77,7 @@ namespace cul {
 
         static bool DivideGuessTooBig(u64 q, u64 valHi, u32 valLo,
                                       u32 divHi, u32 divLo);
-    }; // namespace BigIntegerCalculator
+    } // namespace BigIntegerCalculator
 } // namespace cul
 
 #endif //UNLIMITED_CODE_WORKS_BIGINTEGERCALCULATOR_H

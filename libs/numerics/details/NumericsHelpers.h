@@ -27,7 +27,7 @@ namespace cul {
         static i32 CombineHash(i32 n1, i32 n2) {
             return (i32) CombineHash((u32) n1, (u32) n2);
         }
-    }; // namespace NumericsHelpers
+    } // namespace NumericsHelpers
 } // namespace cul
 
 #endif //UNLIMITED_CODE_WORKS_NUMERICSHELPERS_H

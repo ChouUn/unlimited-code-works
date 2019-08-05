@@ -1,0 +1,30 @@
+//
+// Created by ChouUn on 2019/8/6.
+//
+
+#ifndef UNLIMITED_CODE_WORKS_ALGORITHM
+#define UNLIMITED_CODE_WORKS_ALGORITHM
+
+namespace cul {
+    template <class T>
+    bool update_max(T &lhs, const T &rhs) {
+        if (rhs > lhs) {
+            lhs = rhs;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    template <class T>
+    bool update_min(T &lhs, const T &rhs) {
+        if (rhs < lhs) {
+            lhs = rhs;
+            return true;
+        } else {
+            return false;
+        }
+    }
+} // namespace cul
+
+#endif //UNLIMITED_CODE_WORKS_ALGORITHM
